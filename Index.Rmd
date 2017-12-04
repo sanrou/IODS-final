@@ -1,0 +1,17 @@
+---
+title: "IODS project final assignement"
+author: "Santeri Rouhinen"
+output:
+  html_document:
+    theme: cosmo
+    toc: true
+    toc_depth: 2
+    fig_caption: true
+    fig_width: 6
+    fig_height: 4
+    code_folding: show
+---
+
+# Temp stuff
+
+Text blaa blaa bluu.
