@@ -1,2 +1,5 @@
 # IODS-final
-Final assignment repository
+Final assignment repository for the IODS course. 
+
+Link to the assignment.
+[link](https://sanrou.github.io/IODS-final/)

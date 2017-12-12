@@ -12,6 +12,7 @@ output:
     code_folding: show
 ---
 
-# Temp stuff
+# Analysis idea
 
-Text blaa blaa bluu.
+Use learning2014 dataset to predict who will take the exam or not. I will make a predictor from all of the data and a hand picked selection of variables that I assume a priori to be good predictors. There are not that many subjects that did not take the exam so this might prove to be quite challenging. Due to only having 17 subjects in the whole dataset who did not take the exam I'll use 75 % of the data as the learning set and 25 % as testing set (13 and 4). Fortunately there are many students who did take the exam (166). I'm thinking that the low number of observations not having taken the exam will make for unimpressive results. I don't predict much difference between the performance of the full model and my handpicked model.
+
