@@ -30,6 +30,7 @@ subVariables <- c("su_lp", "st_os", "st_tm", "stat_conf", "value", "interest", "
 
 # Change points to be boolean of taking exam
 trainSet$takeExam <- trainSet$points > 0
+testSet$takeExam <- testSet$points > 0
 
 # Remove the points variable from trainSet, so that the full model is not able to use it as a variable.
 trainSet <- dplyr::select(trainSet, -points)
@@ -41,7 +42,6 @@ handSet  <- trainSet[c(subVariables, 'takeExam')]
 ## I'll use a linear model. Logistic regression model (glm).
 fullModel <- glm(takeExam ~ ., data = trainSet, family = "binomial")
 handModel <- glm(takeExam ~ ., data = handSet,  family = "binomial")
-
 
 
 # Predict the probability of taking exam
@@ -83,8 +83,56 @@ table(takeExam = handSet$takeExam,  prediction = handSet$prediction)
 
 
 ## Time to look at the testing data for actual performance.
-predFull <- predict(fullModel, newdata = testSet)
-predHand <- predict(handModel, newdata = testSet)
+# Fit the model and compute accuracy.
+fitFull <- predict(fullModel, newdata = testSet)
+fitFull <- ifelse(fitFull > thresholdFull, 1, 0)
+classificationErrorFull <- mean(fitFull != testSet$takeExam)
+print(paste('Accuracy of the full model', 1 - classificationErrorFull))
 
-table(correct = points>0, predicted = testSet$)
+fitHand <- predict(handModel, newdata = testSet)
+fitHand <- ifelse(fitHand > thresholdHand, 1, 0)
+classificationErrorFull <- mean(fitHand != testSet$takeExam)
+print(paste('Accuracy of the hand picked model', 1 - classificationErrorFull))
 
+# The accuracies seem pretty decent if one didn't know better. Guessing that all will take the exam would have a better accuracy (1 - nDidNotTakeExam/All = 1 - 4/46 = 0.91). Using ROC to compute the area under curve might be a better idea. It is a commonly used performance measurement for binary classifier performance.
+
+library(ROCR)
+
+# ROC full model
+p <- predict(fullModel, newdata=testSet, type="response")
+pr <- prediction(p, testSet$takeExam)
+# TPR = sensitivity (true positive rate), FPR=specificity (false positive rate)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+# The plot is pretty jagged and close to the diagonal of the plot (which means chance level). There are as many steps as there are those that did not take the exam (very few, thus jagged ROC graph).
+
+# AUC full model
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+print(paste('AUC of the full model', auc))
+
+# ROC hand picked model
+pH <- predict(handModel, newdata=testSet, type="response")
+prH <- prediction(pH, testSet$takeExam)
+# TPR = sensitivity (true positive rate), FPR=specificity (false positive rate)
+prfH <- performance(prH, measure = "tpr", x.measure = "fpr")
+plot(prfH)
+
+# A bit different from the full model. Still poor performance.
+
+aucH <- performance(prH, measure = "auc")
+aucH <- aucH@y.values[[1]]
+print(paste('AUC of the hand picked model', aucH))
+aucH
+
+# Bleugh. Both models' predictive power suck. The full model might be a bit better (AUC 0.55 vs 0.51) but they are very close. Thus my own prediction of the the models performing about the same holds true. Too bad that they perform rather as poorly so it's hard to say if there is actually any sense in the models.
+
+# Check the summaries of the models out of curiosity.
+summary(fullModel)
+
+# There is only one significant variable, confidence in math. 
+
+summary(handModel)
+
+# Same thing with the hand picked variables. I find it a bit peculiar that confidence in statistics is not even close significant. I would have assumed the variables to correlate strongly. In the hand picked model the intercept becomes highly significant instead of merely marginally significant. 
