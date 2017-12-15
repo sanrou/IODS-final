@@ -15,8 +15,302 @@ output:
     code_folding: show
 ---
 
-# Brief description
+# Predicting exam attendance with binary classification
 
-Use learning2014 dataset to predict who will take the exam or not. I will make a predictor from all of the data and a hand picked selection of variables that I assume a priori to be good predictors. There are not that many subjects that did not take the exam so this might prove to be quite challenging. Due to only having 17 subjects in the whole dataset who did not take the exam I'll use 75 % of the data as the learning set and 25 % as testing set (13 and 4). Fortunately there are many students who did take the exam (166). I'm thinking that the low number of observations not having taken the exam will make for unimpressive results. I don't predict much difference between the performance of the full model and my handpicked model.
+## Abstract
 
-# Link to the data wrangling script
+I used the learning2014 dataset with the questionnaire variables collapsed and the supporting age and gender variables as is. The exam points was used to create the response variable *took exam*. I used generalized linear model to try to predict if students took the exam or not. This was done by splitting the dataset into a learning and testing sets (75 and 25 %, respectively). I used all the variables but the points as predictor variables in a full model, and a sub selection of 8 variables in the hand-picked set. I used AUC (area under curve) to judge if my models performed well or not. They performed at chance level. In conclusion I find that one cannot predict well if a student will take the exam according to their attitude or strategy to statistics.
+
+## Description of the research question
+
+Use learning2014 dataset to predict who will take the exam or not. I will make a predictor from all of the data and a hand-picked selection of variables that I assume a priori to be good predictors. There are not that many subjects that did not take the exam so this might prove to be quite challenging. Due to only having 17 subjects in the whole dataset who did not take the exam I'll use 75 % of the data as the learning set and 25 % as testing set (13 and 4). Fortunately there are many students who did take the exam (166). I'm thinking that the low number of observations not having taken the exam will make for unimpressive results. I don't predict much difference between the performance of the full model and my handpicked model. I will be using the GLM method.
+
+I selected emotional and confidence variables for the hand-picked model, as well as the organized studying and lack of purpose variables. I assume that liking or confidence in statistics, and being organized and time managing will predict taking the exam. The lack of purpose might predict not taking the exam.
+
+Link to further information of the dataset: [link](http://www.helsinki.fi/~kvehkala/JYTmooc/JYTOPKYS2-meta.txt)
+
+## Link to the data wrangling script
+[link](https://github.com/sanrou/IODS-final/blob/master/createLearning2014.R)
+
+## Description of the data
+I use the learning2014 dataset as used in the course. It has results of a questionnaire and exam of an introductory course of statistics at the University of Helsinki. There are questions about learning styles and opinions about math and statistics. I don't use as collapsed variables as was done in the course. Most of the variables in the original loaded learning2014 raw file has values ranging from 1-5 for the questionnaires. Variables composed of the original questions are scaled so that an average is taken. Thus a range of 1-5 is kept. There are sex, age, and exam result variables which I kept as is. I also created a Boolean for taking exam or not. This is the variable of interest or the response variable.
+
+Table of the variables:
+
+| Variable name | Composition | Full name, type | In hand picked model? |
+|----------|:------------------|:-----------------------------|--|
+|affect  |  Dg + (6-Dh)             |Affect toward statistics |Yes|
+|age |        original            | Age in years | -|
+|d_ri   |   D07 + D14 + D22 + D30       |Relating Ideas, deep| -|
+|d_sm  |    D03 + D11 + D19 + D27     |Seeking Meaning, deep| -|
+|d_Su    |  Cb + Cc + Cf + Cg     |Transmitting information (related to a surface approach) | -|
+|d_ue   |   D06 + D15 + D23 + D31       |Use of Evidence, deep| -|
+|genderM |     binary           | 0 for female, 1 for male | -|
+|interest | Dc + De             |Interest in statistics| Yes|
+|lar  |     Aa + Ac + Ad    |Learning as Reproducing| -|
+|lat      | Ab + Ae + Af      |Learning as Transforming| -|
+|math_conf  |         Dd + Di   |Confidence in doing math| Yes|
+|points|      original            | Exam points (0 if did not take exam)| |
+|st_os   |  ST01 + ST09 + ST17 + ST25   |Organized Studying, strategic| Yes|
+|st_tm   |  ST04 + ST12 + ST20 + ST28   |Time Management, strategic| Yes|
+|stat_conf    |       Da + (6-Df)  |Confidence in doing statistics| Yes|
+|stat_value  |   Db + Dj              |Value of statistics| Yes|
+|su_lp    | SU02 + SU10 + SU18 + SU26   |Lack of Purpose, surface| Yes|
+|su_sb   |  SU08 + SU16 + SU24 + SU32   |Syllabus-boundness, surface| -|
+|su_Ti   |  Ca + Cd + Ce + Ch   |Supporting understanding (related to a deep approach)| -|
+|su_um   |  SU05 + SU13 + SU21 + SU29   |Unrelated Memorising, surface| -|
+
+#### Code to load libraries and the data
+
+```{r warning=FALSE, message=FALSE}
+# Initialize required libraries
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(corrplot)
+library(ROCR)
+
+# Read learning2014.csv
+learning2014 <- read.csv("learning2014.csv",row.names = 1)
+
+```
+
+
+
+## Variable visualizations
+
+```{r fig.height=8, fig.width=8}
+
+# Check how many did not take the exam. Answer is 17.
+sum(learning2014$points == 0)
+
+## Make two histograms to have a different amount of bins. This will reduce ugliness.
+# Index variables with originally 2 questions classes.
+index2 <- c(1, 8, 11, 15, 16)
+
+# Make histogram of the variables with originally 2 classes.
+learning2014[index2] %>% 
+  gather(key=var_name, value = value) %>% 
+  ggplot(aes(x=value)) +
+  geom_histogram(bins = 9) +
+  facet_wrap(~var_name, scales = "free_x")
+
+# Make histograms of the rest.
+learning2014[-index2] %>% 
+  gather(key=var_name, value = value) %>% 
+  ggplot(aes(x=value)) +
+  geom_histogram(bins = 15) +
+  facet_wrap(~var_name, scales = "free_x")
+```
+
+Above is a histogram of the different variables. Note that in gender_m 0 means female and 1 male. Some of the variables have rather discrete values, so separate binning was used. That is why there are two figures of histograms. 
+
+Many of the variables are not particularly normal, including the lar and lat (learning as reproducing and transforming) which are bimodal. The points variable is only used as a binary took exam or not (0 points or more?). There are only 17 that did not take the exam. 
+
+
+```{r fig.height=8, fig.width=8}
+
+# Make a correlation plot
+cor_matrix<-cor(learning2014) 
+
+# Create color ramp from dull dark blue to white to dull red.
+colorVector <- c("#4477AA", "#77AADD", "#FFFFFF", "#EE9988", "#BB4444")
+
+# Visualize correlation matrix
+corrplot(cor_matrix, method = "color", col = colorRampPalette(colorVector)(200),
+         type = "upper", order = "alphabet", number.cex = .8,
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col = "black", tl.srt = 30, # Text label color and rotation
+         # hide correlation coefficient on the principal diagonal
+         diag = FALSE)
+
+
+```
+
+Above is a correlation plot of the different variables. The points variable is of particular interest is. It does not have correlations of even medium strength (maximum is correlation of -0.24 with stat_conf (confidence in statistics)). Strongest correlations are between lar and lat, and affect and stat_conf, and interest and stat_value, and st_os and st_tm. Interestingly confidence in math and confidence in statistics are strongly negatively correlated (-0.55). Most of the correlations are not of particular interest for the analysis. Variables that were collapsed into deep, strategic and surface have often pretty low correlations. I take this to mean that not collapsing the variables more might be a good idea.
+
+
+## Description of the method
+
+I am doing binary classification using logistic regression. To be more exact I'm using the GLM (generalized linear model). The model predicts an expected value using other values. The model expects a linear change of the *predictor variables* to have a change in the *response variable*. The change in the response variable does not have to be linear. In this case the response variable is taking the exam or not, so one needs to change the probability of taking the exam to a binary yes no prediction. The GLM allow non-normal distributions in the predictor variables.
+
+I'm using the binomial logistic regression type of GLM. The binomial model link function used is logistic. This means the response variable is log odds: ln(odds) = ln(p/(1-p)) = a*x1 + b*x2 + . + z*xn. So the model values given will be in units of log odds. 
+
+To avoid overfitting and to be more confident in the generalizability of the model created one needs to split the data into a training set and a testing set. There are quite a few methods of splitting the data. One of the best would be to collect one set of data, use that as the training set of the model, then collect another set of data and test on that if the model works or not. Now there is one dataset, the learning2014 dataset. So I'll split that into training set having 75% and the testing set will have 25%. I make sure that both have the same ratio of people having taken and not taken the exam.
+
+
+## Presentation of results
+
+
+```{r warning=FALSE, message=FALSE}
+
+# Split the learning2014 to exam takers and non-takers.
+examY <- filter(learning2014, points > 0)
+examN <- filter(learning2014, points == 0)
+
+# Lets hope that the observations are not sorted in some way. Use the first 75 % as the training set and the latter 25 % as the testing set.
+yTrainN <- round(nrow(examY)*0.75)
+nTrainN <- round(nrow(examN)*0.75)
+
+trainSet <- rbind(examY[1:yTrainN ,], examN[1:nTrainN ,])
+testSet  <- rbind(examY[-(1:yTrainN) ,], examN[-(1:nTrainN) ,])
+
+
+## Select variables for the hand picked variables for the hopefully better performing model.
+# First list the columns
+colnames(learning2014)
+
+# Hand pick promising variables, keep alphabetical order.
+subVariables <- c("affect", "interest", "math_conf", "st_os", "st_tm", "stat_conf", "stat_value", "su_lp") %>% sort()
+
+# Change points to be boolean of taking exam
+trainSet$takeExam <- trainSet$points > 0
+testSet$takeExam <- testSet$points > 0
+
+# Remove the points variable from trainSet, so that the full model is not able to use it as a variable.
+trainSet <- dplyr::select(trainSet, -points)
+
+# Split a subset of variables for the hand picked model.
+handSet  <- trainSet[c(subVariables, 'takeExam')]
+
+
+## I'll use a linear model. Logistic regression model (glm).
+fullModel <- glm(takeExam ~ ., data = trainSet, family = binomial(link = "logit"))
+handModel <- glm(takeExam ~ ., data = handSet,  family = binomial(link = "logit"))
+
+
+
+# Predict the probability of taking exam
+probabilitiesFull <- predict(fullModel, type = "response")
+probabilitiesHand <- predict(handModel, type = "response")
+
+# Add the predicted probabilities to the dataframes
+trainSet <- mutate(trainSet, probability = probabilitiesFull)
+handSet  <- mutate(handSet,  probability = probabilitiesHand)
+
+# Use the probabilities to make a prediction of taking exam
+trainSet <- mutate(trainSet, prediction = probability > 0.5)
+handSet  <- mutate(handSet,  prediction = probability > 0.5)
+
+# tabulate the target variable versus the predictions
+table(takeExam = trainSet$takeExam, prediction = trainSet$prediction)
+table(takeExam = handSet$takeExam,  prediction = handSet$prediction)
+
+```
+
+Well that didn't go too well. The full set performed better, but poorly (only 2 true negatives, 2 false negative, 11 false positives). The hand-picked model predicted that all of the students would have taken the exam!
+
+Search for a threshold in prediction which will give 13 predictions. So just sort the probabilities and find the 13th and 14th values, take average. 
+
+```{r}
+
+fullProbabilitySorted <- sort(trainSet$probability)
+thresholdFull <- mean(fullProbabilitySorted[c(13,14)])
+
+handProbabilitySorted <- sort(handSet$probability)
+thresholdHand <- mean(handProbabilitySorted[c(13,14)])
+
+print(paste('Full model threshold:', thresholdFull, '. Hand picked model threshold:', thresholdHand))
+
+```
+
+The new thresholds are 0.704 (full) and 0.788 (hand picked).
+
+Stir the pot and do the predictions again.
+
+```{r}
+trainSet <- mutate(trainSet, prediction = probability > thresholdFull)
+handSet  <- mutate(handSet,  prediction = probability > thresholdHand)
+
+# tabulate the target variable versus the predictions
+table(takeExam = trainSet$takeExam, prediction = trainSet$prediction)
+table(takeExam = handSet$takeExam,  prediction = handSet$prediction)
+
+```
+
+Well, that seems a bit better, but not much. Now there are many more false negatives but at least there are more true negatives. 
+
+Time to look at the testing data for actual performance.
+
+```{r}
+# Fit the model and compute accuracy.
+fitFull <- predict(fullModel, newdata = testSet)
+fitFull <- ifelse(fitFull > thresholdFull, 1, 0)
+classificationErrorFull <- mean(fitFull != testSet$takeExam)
+print(paste('Accuracy of the full model', 1 - classificationErrorFull))
+
+fitHand <- predict(handModel, newdata = testSet)
+fitHand <- ifelse(fitHand > thresholdHand, 1, 0)
+classificationErrorFull <- mean(fitHand != testSet$takeExam)
+print(paste('Accuracy of the hand picked model', 1 - classificationErrorFull))
+
+```
+
+The accuracies seem pretty decent if one didn't know better. Guessing that all will take the exam would have about the same accuracy (1 - nDidNotTakeExam/All = 1 - 4/46 = 0.91). Using ROC to compute the area under curve will give a better idea of the models' performance. It is a commonly used performance measurement for binary classifier performance.
+
+```{r}
+## Validation of the model with ROC and AUC.
+# ROC full model
+p <- predict(fullModel, newdata=testSet, type="response")
+pr <- prediction(p, testSet$takeExam)
+# TPR = sensitivity (true positive rate), FPR=specificity (false positive rate)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+```
+
+The plot for the full model is pretty jagged and close to the diagonal of the plot (which means chance level). There are as many steps as there are those that did not take the exam (very few, thus jagged ROC graph).
+
+```{r}
+# AUC full model
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+print(paste('AUC of the full model', auc))
+
+# ROC hand picked model
+pH <- predict(handModel, newdata=testSet, type="response")
+prH <- prediction(pH, testSet$takeExam)
+# TPR = sensitivity (true positive rate), FPR=specificity (false positive rate)
+prfH <- performance(prH, measure = "tpr", x.measure = "fpr")
+plot(prfH)
+
+# A bit different from the full model. Still poor performance.
+
+aucH <- performance(prH, measure = "auc")
+aucH <- aucH@y.values[[1]]
+print(paste('AUC of the hand picked model', aucH))
+
+
+```
+
+Bleugh. Both models' predictive power suck. The full model might be a bit better (AUC 0.51 vs 0.48) but they are both very close to 0.5 (which is chance level). Thus my own prediction of the models performing about the same holds true. Too bad that they perform rather as poorly so it's hard to say if there is actually any sense in the models.
+
+Check the summaries of the models out of curiosity.
+
+```{r}
+summary(fullModel)
+
+summary(handModel)
+
+```
+
+Confidence in math is the most significant predictor in both models. In the full model it is significant and in the hand-picked model it is marginally significant. In both models more confidence means a better predicted chance of attending the exam. In the full model the seeking meaning variable (of the deep class) is a marginally significant predictor.
+
+Let's use ANOVA to see how the models perform against a null model.
+
+```{r}
+
+anova(fullModel, test = "Chisq")
+anova(handModel, test = "Chisq")
+
+```
+
+One can compare the Deviance and Resid. Dev (null model deviance and model deviance). If the residual deviance is larger than the model should fare well against null model. There is a wide difference so the model should be performing well against the null model. From the AUC we know that the models do not perform well, so this analysis seems to be very suspicious to me if used. I would have imagined that the null model should perform as well as the current models. This is not the case according to the ANOVAs.
+
+## Conclusion
+
+I performed a binary logistic regression analysis to try to predict which students would take the exam in a statistics course. I used two different models. A full model with all of the variables, and a hand-picked model with less than half of all the variables. I used AUC to check if my models have predictive value or not. I found that both models performed at chance level according to AUC. Surprisingly I also found that ANOVA suggested the model to perform better than a null model. The ANOVA result is definitely spurious. 
+
+I was originally thinking of having three or four different classes of chances of taking the exam. So instead of using a binomial model that seems pretty arbitrary having only yes/no, there would have been for example "low chance", "unsure", "high chance" classes from the classifier. Then one could have compared only the low chance and high chance classes. This does not seem very common though from what I have seen done. I does seem arbitrary to me that you cut one line separating very close values with a completely different classification. A more fuzzy method seems more likeable to me. 
+
+All in all I don't think I made major a mistake in the code, but that I cannot know as the models performed so poorly. A mistake would be less likely if the models had some predictive power. I think a major issue is that there were very not that many students who did not take the exam. Also not taking the exam would be many times likely due to chance like being sick.

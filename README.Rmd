@@ -1,5 +1,15 @@
 # IODS-final
 Final assignment repository for the IODS course. 
 
-Link to the assignment.
-[link](https://sanrou.github.io/IODS-final/)
+[Link to the assignment](https://sanrou.github.io/IODS-final/)
+
+One is supposed to rewrite this but with what? Random stuff it is.
+
+I assume familiarity with the data as an assumption of no knowledge was not given. Did I ASSuME?
+
+## Link to the data wrangling script:
+[Link to wrangling](https://github.com/sanrou/IODS-final/blob/master/createLearning2014.R)
+
+## From the abstract of the assignment
+
+I used the learning2014 dataset with the questionnaire variables collapsed and the supporting age and gender variables as is. The exam points was used to create the response variable *took exam*. I used generalized linear model to try to predict if students took the exam or not. This was done by splitting the dataset into a learning and testing sets (75 and 25 %, respectively). I used all the variables but the points as predictor variables in a full model, and a sub selection of 8 variables in the hand-picked set. I used AUC (area under curve) to judge if my models performed well or not. They performed at chance level. In conclusion I find that one cannot predict well if a student will take the exam according to their attitude or strategy to statistics.
